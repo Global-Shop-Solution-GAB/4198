@@ -1,0 +1,183 @@
+Program.Sub.ScreenSU.Start
+Gui.fCostUpd..Create
+Gui.fCostUpd..Caption("Update Cost by PL")
+Gui.fCostUpd..Size(4110,2175)
+Gui.fCostUpd..MinX(0)
+Gui.fCostUpd..MinY(0)
+Gui.fCostUpd..Position(0,0)
+Gui.fCostUpd..BackColor(-2147483633)
+Gui.fCostUpd..MaxButton(False)
+Gui.fCostUpd..MousePointer(0)
+Gui.fCostUpd..Sizeable(False)
+Gui.fCostUpd..Event(UnLoad,fCostUpd_UnLoad)
+Gui.fCostUpd.lblPL.Create(Label,"Product Line:",True,1110,255,0,540,210,True,0,"Arial",8,-986896,0)
+Gui.fCostUpd.lblCost.Create(Label,"Cost:",True,1110,255,0,540,585,True,0,"Arial",8,-986896,0)
+Gui.fCostUpd.lblAltCost.Create(Label,"Alt Cost:",True,1110,255,0,540,960,True,0,"Arial",8,-986896,0)
+Gui.fCostUpd.txtPL.Create(TextBox,"",True,1215,300,0,1650,150,True,0,"Arial",8,-2147483643,1)
+Gui.fCostUpd.txtPL.Event(LostFocus,txtPL_LostFocus)
+Gui.fCostUpd.txtPL.MaxLength(2)
+Gui.fCostUpd.txtCost.Create(TextBox,"",True,1215,300,0,1650,510,False,0,"Arial",8,-2147483643,1)
+Gui.fCostUpd.txtAltCost.Create(TextBox,"",True,1215,300,0,1650,870,False,0,"Arial",8,-2147483643,1)
+Gui.fCostUpd.cmdSave.Create(Button)
+Gui.fCostUpd.cmdSave.Size(855,375)
+Gui.fCostUpd.cmdSave.Position(270,1350)
+Gui.fCostUpd.cmdSave.Caption("Save")
+Gui.fCostUpd.cmdSave.Event(Click,cmdSave_Click)
+Gui.fCostUpd.cmdPLBrw.Create(Button)
+Gui.fCostUpd.cmdPLBrw.Size(465,375)
+Gui.fCostUpd.cmdPLBrw.Position(2925,120)
+Gui.fCostUpd.cmdPLBrw.Caption("^")
+Gui.fCostUpd.cmdPLBrw.Event(Click,cmdPLBrw_Click)
+Gui.fCostUpd.chkCost.Create(CheckBox)
+Gui.fCostUpd.chkCost.Size(210,360)
+Gui.fCostUpd.chkCost.Position(315,510)
+Gui.fCostUpd.chkCost.Event(Click,chkCost_Click)
+Gui.fCostUpd.chkAltCost.Create(CheckBox)
+Gui.fCostUpd.chkAltCost.Size(195,360)
+Gui.fCostUpd.chkAltCost.Position(315,870)
+Gui.fCostUpd.chkAltCost.Event(Click,chkAltCost_Click)
+Gui.fCostUpd.lblStatus.Create(Label,"****Change*****",False,2580,255,0,1215,1260,True,0,"Arial",8,-2147483633,0)
+Gui.fCostUpd.pbStatus.Create(ProgressBar)
+Gui.fCostUpd.pbStatus.Size(2475,255)
+Gui.fCostUpd.pbStatus.Position(1260,1455)
+Gui.fCostUpd.pbStatus.Visible(False)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+	V.Global.sPL.Declare
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'Project will allow Lakeshore to update their cost for commodity items based on PL
+'Note: No Cost Transaction is made for this change
+
+	V.Local.sIcon.Declare
+
+	F.Intrinsic.String.Build("{0}\GAB\GAS\gss2.ico",V.Caller.PluginsDir,v.Local.sIcon)
+	Gui.fCostUpd..Icon(V.Local.sIcon)
+
+	F.ODBC.Connection!con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass,1800)
+	
+	Gui.fCostUpd.txtCost.Text("0.00")
+	Gui.fCostUpd.txtAltCost.Text("0.00")
+	Gui.fCostUpd..Show
+Program.Sub.Main.End
+
+Program.Sub.fCostUpd_UnLoad.Start
+	F.ODBC.Connection!con.Close
+	F.Intrinsic.Control.End
+
+Program.Sub.fCostUpd_UnLoad.End
+
+Program.Sub.cmdPLBrw_Click.Start
+	V.Local.sTitles.Declare
+	V.Local.iWidth.Declare
+	V.Local.sRet.Declare
+
+	Function.Intrinsic.String.Split("P/L*!*Description*!*Name","*!*",V.Local.sTitles)
+	Function.Intrinsic.String.Split("500*!*500*!*1000","*!*",V.Local.iWidth)
+	Function.Intrinsic.UI.Browser("Select PL","con","SELECT PRODUCT_LINE, PRODUCT_LINE_DESC, PRODUCT_LINE_NAME FROM PRODUCT_LINE WHERE KEY_DATA = 'ORDPRDLN' AND LINE = '';",V.Local.sTitles,V.Local.iWidth,V.Local.sRet)
+	F.Intrinsic.Control.If(V.Local.sRet,<>,"***CANCEL***")
+		Function.Intrinsic.String.Split(V.Local.sRet,"*!*",V.Local.sRet)
+		V.Global.sPL.Set(V.Local.sRet(0))
+		Gui.fCostUpd.txtPL.Text(V.Local.sRet(0))
+	F.Intrinsic.Control.EndIf	
+Program.Sub.cmdPLBrw_Click.End
+
+Program.Sub.txtPL_LostFocus.Start
+	V.Local.sSql.Declare
+	V.Local.iRet.Declare
+	V.Local.sMsg.Declare
+	
+	V.Global.sPL.Set(V.Screen.fCostUpd!txtPL.Text)
+	
+	Function.Intrinsic.Control.If(V.Screen.fCostUpd!txtPL.Text,<>,"")
+		Gui.fCostUpd.txtPL.Text(V.Global.sPL.UCase)
+		Function.Intrinsic.String.Build("SELECT COUNT(*) FROM PRODUCT_LINE WHERE KEY_DATA = 'ORDPRDLN' AND LINE = '' AND PRODUCT_LINE = '{0}';",V.Global.sPL.UCase,V.Local.sSql)
+		F.ODBC.Connection!con.ExecuteAndReturn(V.Local.sSql,V.Local.iRet)
+		Function.Intrinsic.Control.If(V.Local.iRet,=,0)
+			Function.Intrinsic.String.Build("{0} is not a valid Product Line.",V.Global.sPL.UCase,V.Local.sMsg)
+			Function.Intrinsic.UI.Msgbox(V.Local.sMsg,"Error")
+			Gui.fCostUpd.txtPL.Text("")
+		Function.Intrinsic.Control.EndIf
+	Function.Intrinsic.Control.EndIf
+Program.Sub.txtPL_LostFocus.End
+
+Program.Sub.cmdSave_Click.Start
+	V.Local.sSql.Declare
+	
+	Gui.fCostUpd.lblStatus.Visible(True)
+	Gui.fCostUpd.pbStatus.Visible(True)
+	Gui.fCostUpd.lblStatus.Caption("Updating....")
+	Gui.fCostUpd.pbStatus.Min(0)
+	Gui.fCostUpd.pbStatus.Max(100)
+	Gui.fCostUpd.pbStatus.Value(5)
+	
+	F.Intrinsic.Control.If(V.Screen.fCostUpd!chkCost.Value,=,1)
+		'Update Amt_Cost in Inventory_Mstr
+		Gui.fCostUpd.lblStatus.Caption("Updating Amt_Cost in Inventory_Mstr")
+		Function.Intrinsic.String.Build("Update Inventory_Mstr SET Amt_Cost = (Amt_cost + {0}) WHERE Product_Line = '{1}';",V.Screen.fCostUpd!txtCost.Text,V.Global.sPL.UCase,V.Local.sSql)
+		F.ODBC.Connection!con.Execute(V.Local.sSql)
+		Gui.fCostUpd.pbStatus.Value(15)
+		
+		'Update UNIT_COST in ITEM_MASTER
+		Gui.fCostUpd.lblStatus.Caption("Updating Unit_Cost in Item_Master")
+		Function.Intrinsic.String.Build("UPDATE ITEM_MASTER SET IM.UNIT_COST = IVM.AMT_COST FROM ITEM_MASTER IM JOIN INVENTORY_MSTR IVM ON IM.PART = IVM.PART AND IM.LOCATION = IVM.LOCATION WHERE IVM.PRODUCT_LINE = '{0}';",V.Global.sPL.UCase,V.Local.sSql)
+		F.ODBC.Connection!con.Execute(V.Local.sSql)
+		Gui.fCostUpd.pbStatus.Value(30)
+		
+		'Update MATL_COST in ITEM_MASTER
+		Gui.fCostUpd.lblStatus.Caption("Updating Matl_Cost in Item_Master")
+		Function.Intrinsic.String.Build("UPDATE ITEM_MASTER SET IM.MATL_COST = IVM.AMT_COST,IM.LABOR_COST = 0,IM.OVHD_COST = 0,IM.OUTS_COST = 0,IM.FRGT_COST = 0,IM.OTH_COST = 0 FROM ITEM_MASTER IM JOIN INVENTORY_MSTR IVM ON IM.PART = IVM.PART AND IM.LOCATION = IVM.LOCATION WHERE IVM.PRODUCT_LINE = '{0}';",V.Global.sPL.UCase,V.Local.sSql)
+		F.ODBC.Connection!con.Execute(V.Local.sSql)
+		Gui.fCostUpd.pbStatus.Value(45)
+		
+		'Update COST in INVENTORY_COST
+		Gui.fCostUpd.lblStatus.Caption("Updating Cost in Inventory_Cost")
+		Function.Intrinsic.String.Build("UPDATE INVENTORY_COST SET IC.COST = IVM.AMT_COST FROM INVENTORY_COST IC JOIN INVENTORY_MSTR IVM ON IC.PART = IVM.PART AND IC.LOCN = IVM.LOCATION WHERE IVM.PRODUCT_LINE = '{0}';",V.Global.sPL.UCase,V.Local.sSql)
+		F.ODBC.Connection!con.Execute(V.Local.sSql)
+		Gui.fCostUpd.pbStatus.Value(60)
+		
+		'Update MATL in INVENTORY_COST
+		Gui.fCostUpd.lblStatus.Caption("Updating Matl in Inventory_Cost")
+		Function.Intrinsic.String.Build("UPDATE INVENTORY_COST SET IC.MATL = IVM.AMT_COST,IC.LABOR = 0,IC.OVHD = 0,IC.OUTS = 0,IC.FREIGHT = 0,IC.OTH = 0 FROM INVENTORY_COST IC JOIN INVENTORY_MSTR IVM ON IC.PART = IVM.PART AND IC.LOCN = IVM.LOCATION WHERE IVM.PRODUCT_LINE = '{0}';",V.Global.sPL.UCase,V.Local.sSql)
+		F.ODBC.Connection!con.Execute(V.Local.sSql)
+		Gui.fCostUpd.pbStatus.Value(75)
+	F.Intrinsic.Control.EndIf
+
+	F.Intrinsic.Control.If(V.Screen.fCostUpd!chkAltCost.Value,=,1)
+		'Update Amt_Alt_Cost in Inventory_Mstr
+		Gui.fCostUpd.pbStatus.Value(80)
+		Gui.fCostUpd.lblStatus.Caption("Updating Amt_Alt_Cost in Inventory_Mstr")
+		Function.Intrinsic.String.Build("Update Inventory_Mstr SET Amt_Alt_Cost = (Amt_Alt_Cost + {0}) WHERE Product_Line = '{1}' and Amt_Alt_Cost <> 0;",V.Screen.fCostUpd!txtAltCost.Text,V.Global.sPL.UCase,V.Local.sSql)
+		F.ODBC.Connection!con.Execute(V.Local.sSql)
+		Gui.fCostUpd.pbStatus.Value(95)
+	F.Intrinsic.Control.EndIf
+
+	Gui.fCostUpd.pbStatus.Value(100)
+	Gui.fCostUpd.lblStatus.Visible(False)
+	Gui.fCostUpd.pbStatus.Visible(False)
+	
+	Function.Intrinsic.UI.Msgbox("Update Complete.","Message")
+	Function.Intrinsic.Control.CallSub(fcostupd_unload)
+Program.Sub.cmdSave_Click.End
+
+Program.Sub.chkCost_Click.Start
+	F.Intrinsic.Control.If(V.Screen.fCostUpd!chkCost.Value,=,1)
+		Gui.fCostUpd.txtCost.Enabled(True)
+	F.Intrinsic.Control.Else
+		Gui.fCostUpd.txtCost.Enabled(False)
+	F.Intrinsic.Control.EndIf
+Program.Sub.chkCost_Click.End
+
+Program.Sub.chkAltCost_Click.Start
+	F.Intrinsic.Control.If(V.Screen.fCostUpd!chkAltCost.Value,=,1)
+		Gui.fCostUpd.txtAltCost.Enabled(True)
+	F.Intrinsic.Control.Else
+		Gui.fCostUpd.txtAltCost.Enabled(False)
+	F.Intrinsic.Control.EndIf
+Program.Sub.chkAltCost_Click.End
+
+Program.Sub.Comments.Start
+${$0$}$GAB_LS_Cost_Updates$}$AGV$}$08/19/2016 9:11:12 AM$}$False
+Program.Sub.Comments.End
